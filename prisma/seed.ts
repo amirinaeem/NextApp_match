@@ -1,42 +1,25 @@
-process.env.SEEDING = 'true';
-
 import { auth } from "@/lib/auth";
 import { membersData } from "./membersData";
 import { prisma } from "@/lib/prisma";
 
-async function seedAdmin() {
-    const result = await auth.api.signUpEmail({
-        body: {
-            email: 'admin@test.com',
-            password: 'Pa$$w0rd',
-            name: 'Admin'
-        }
-    });
-
-    await prisma.user.update({
-        where: {id: result.user.id},
-        data: {emailVerified: true, role: 'admin', profileComplete: true}
-    })
-}
 
 async function seedUsers() {
     for (const member of membersData) {
         const result = await auth.api.signUpEmail({
             body: {
                 email: member.email,
-                password: 'Pa$$w0rd',
+                password: 'Pass####w0rd',
                 name: member.name,
                 image: member.image
             }
-        });
+        })
 
         const userId = result.user.id;
 
         await prisma.user.update({
-            where: {id: userId},
+            where: { id: userId },
             data: {
                 emailVerified: true,
-                profileComplete: true,
                 member: {
                     create: {
                         dateOfBirth: new Date(member.dateOfBirth),
@@ -50,7 +33,7 @@ async function seedUsers() {
                         image: member.image,
                         photos: {
                             create: [
-                                {url: member.image, status: 'approved'}
+                                { url: member.image }
                             ]
                         }
                     }
@@ -60,21 +43,14 @@ async function seedUsers() {
     }
 }
 
+
 async function main() {
-    const existingUsers = await prisma.user.count();
-    if (existingUsers > 0) {
-        console.log("Database already contains users. Skipping");
-        return;
-    }
-    await seedUsers();
-    await seedAdmin();
+    await seedUsers()
 }
 
-main()
-    .catch(e => {
-        console.error(e);
-        process.exit(1);
-    })
-    .finally(async () => {
-        await prisma.$disconnect();
-    })
+main().catch(e => {
+    console.log(e);
+    process.exit(1);
+}).finally(async () => {
+    await prisma.$disconnect()
+})

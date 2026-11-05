@@ -8,7 +8,7 @@ import UserMenu from "./UserMenu";
 
 
 const navLinks = [
-    { href: '/matches', label: 'Matches' },
+    { href: '/members', label: 'Matches' },
     { href: '/lists', label: 'Lists' },
     { href: '/messages', label: 'Messages' }
 ]

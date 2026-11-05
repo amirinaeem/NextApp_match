@@ -1,22 +1,24 @@
 
-import { getCurrentUser } from "@/lib/auth";
-import { Surface } from "@heroui/react";
+
+import { getMembers } from "@/server/actions/members";
+import MemberCard from "./MemberCard";
+import { fetchCurrentUserLikeIds } from "@/server/actions/likes";
+
 
 
 export default async function MembersPage() {
 
-  const user = await getCurrentUser()
+  const members = await getMembers();
+  const likeIds = await fetchCurrentUserLikeIds()
   return (
     <>
-      <h2>Members Page</h2>
+      <div className="p-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
 
-      {user ? (
-        <Surface className="p-4 rounded-2xl">
-          <pre>{JSON.stringify(user, null, 2)}</pre>
-        </Surface>
-      ) : (
-        <div>Not Signed In</div>
-      )}
+        {members && members.map(member => (
+          <MemberCard key={member.id} member={member} likeIds={likeIds} />
+        ))}
+
+      </div>
 
     </>
   )

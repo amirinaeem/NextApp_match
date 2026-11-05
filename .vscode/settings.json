@@ -19,5 +19,6 @@
         "titleBar.activeBackground": "#0000ff",
         "titleBar.border": "#0000ff",
         "titleBar.inactiveBackground": "#0000ff99"
-    }
+    },
+    "python.terminal.useEnvFile": true
 }

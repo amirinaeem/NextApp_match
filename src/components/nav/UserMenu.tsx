@@ -28,7 +28,7 @@ export default function UserMenu({ user }: Props) {
         <Dropdown>
             <Dropdown.Trigger>
                 <Avatar>
-                    <Avatar.Image alt={user.name} src="https://i.pravatar.cc/150?img=12&utm_source=chatgpt.com" />
+                    <Avatar.Image alt={user.name} src={user.image || '/images/user.png'} />
                     <Avatar.Fallback>{user.name.charAt(0)}</Avatar.Fallback>
                 </Avatar>
             </Dropdown.Trigger>
