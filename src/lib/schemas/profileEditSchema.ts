@@ -1,10 +1,11 @@
-import z from "zod";
+
+import { z } from "zod";
 
 export const profileEditSchema = z.object({
-    name: z.string().min(1, {error: 'Name is required'}),
-    description: z.string().min(1, {error: 'Description is required'}),
-    city: z.string().min(1, {error: 'City is required'}),
-    country: z.string().min(1, {error: 'Country is required'}),
+    name: z.string().min(1, "Name is required"),
+    description: z.string().min(1, "Description is required"),
+    city: z.string().min(1, "City is required"),
+    country: z.string().min(1, "Country is required"),
 });
 
 export type ProfileEditSchema = z.infer<typeof profileEditSchema>;

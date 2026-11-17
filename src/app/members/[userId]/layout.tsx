@@ -4,10 +4,20 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { buttonVariants, Card, Separator } from "@heroui/react";
-import { calculateAge } from "@/lib/util";
+import { calculateAge, transformImageUrl } from "@/lib/util";
 import Link from "next/link";
 import MemberNav from "./MemberNav";
 import SectionTitle from "./SectionTitle";
+import { getCurrentUser } from "@/lib/auth";
+
+
+export const sections = [
+    { name: 'Profile', path: '', segment: null },
+    { name: 'Photos', path: '/photos', segment: 'photos' },
+    { name: 'Chat', path: '/chat', segment: 'chat' }
+]
+
+
 
 export default async function Layout({
     children,
@@ -18,6 +28,10 @@ export default async function Layout({
 }) {
     const { userId } = await params;
     const member = await getMemberByUserId(userId);
+
+    const currentUser = await getCurrentUser();
+
+    const isCurrentUser = currentUser?.id === userId;
 
     if (!member) return notFound();
 
@@ -32,7 +46,7 @@ export default async function Layout({
                         height={500}
                         loading="eager"
                         sizes="(max-width: 768px) 100vw, 33vw"
-                        src={member.image || "/images/user.png"}
+                        src={transformImageUrl(member.image) || "/images/user.png"}
                         className="aspect-square w-full object-cover relative rounded-full p-6"
                     />
 
@@ -49,7 +63,12 @@ export default async function Layout({
 
                         <Separator />
 
-                        <MemberNav userId={userId} />
+                        <MemberNav
+                            userId={userId}
+                            sections={isCurrentUser
+                                ? sections.filter(x => x.segment !== 'chat')
+                                : sections}
+                        />
                     </Card.Content>
 
                     <Card.Footer className="w-full">
@@ -70,7 +89,7 @@ export default async function Layout({
             <div className="col-span-9">
                 <Card className="w-full mt-6 h-[80vh]">
                     <Card.Header>
-                        <SectionTitle />
+                        <SectionTitle sections={sections} isOwner={isCurrentUser} />
                     </Card.Header>
                     <Separator />
                     <Card.Content>
