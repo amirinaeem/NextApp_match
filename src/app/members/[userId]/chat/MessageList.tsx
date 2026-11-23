@@ -1,12 +1,26 @@
+
 'use client';
 
+type Message = {
+    id: string;
+    text: string;
+};
 
-export default function MessageList() {
+type Props = {
+    messages: Message[];
+};
 
+export default function MessageList({ messages }: Props) {
 
     return (
         <div className="relative flex flex-col flex-1">
-            <h2>Message List</h2>
+            <ul>
+                {messages.map(message => (
+                    <li key={message.id}>
+                        <p>{message.text}</p>
+                    </li>
+                ))}
+            </ul>
         </div>
-    )
+    );
 }

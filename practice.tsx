@@ -1,45 +1,162 @@
-'use client' // Error boundaries must be Client Components
+'use client';
 
-import { Button, Card } from '@heroui/react'
-import { useEffect } from 'react'
-import { FaBug } from 'react-icons/fa'
+import AppModal from "@/components/AppModal";
+import PresenceAvatar from "@/components/PresenceAvatar";
+import { useMessageStore } from "@/lib/hooks/useMessageStore";
+import { MessageDto } from "@/lib/types";
+import { formatShortDateTime } from "@/lib/util";
+import { deleteMessage, getMessagesByContainer } from "@/server/actions/messages";
+import { Button, Table, toast, useOverlayState } from "@heroui/react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { AiFillDelete } from "react-icons/ai";
+import { useShallow } from 'zustand/shallow'
 
-export default function ErrorPage({
-    error,
-    unstable_retry,
-}: {
-    error: Error & { digest?: string }
-    unstable_retry: () => void
-}) {
+type Props = {
+    initialMessages: MessageDto[];
+    container: string;
+    initNextCursor?: string;
+}
+
+export default function MessageTable({ initialMessages, container, initNextCursor }: Props) {
+    const [isDeleting, startTransition] = useTransition();
+    const [isLoadingMore, startLoadingMoreTransition] = useTransition();
+    const router = useRouter();
+    const isOutbox = container === 'outbox';
+    const partyLabel = isOutbox ? 'Recipient' : 'Sender';
+    const initMessages = useRef(initialMessages);
+    const [cursor, setCursor] = useState(initNextCursor);
+    const [selectedMessage, setSelectedMessage] = useState<MessageDto | null>(null);
+    const deleteState = useOverlayState();
+
+    const { set, remove, messages, updateUnreadCount, resetMessages } = useMessageStore(useShallow(state => ({
+        set: state.set,
+        remove: state.remove,
+        messages: state.messages,
+        updateUnreadCount: state.updateUnreadCount,
+        resetMessages: state.resetMessages
+    })));
+
     useEffect(() => {
-        // Log the error to an error reporting service
-        console.error(error)
-    }, [error])
+        set(initMessages.current);
+        return () => resetMessages();
+    }, [set, container, resetMessages]);
+
+    const loadMore = useCallback(() => {
+        if (cursor) {
+            startLoadingMoreTransition(async () => {
+                const { messages, nextCursor } = await getMessagesByContainer(container, cursor);
+                set(messages);
+                setCursor(nextCursor);
+            })
+        }
+    }, [container, cursor, set]);
+
+    const handleDelete = (message: MessageDto) => {
+        startTransition(async () => {
+            const result = await deleteMessage(message.id, isOutbox);
+            if (result.status === 'error') toast.danger(result.error as string);
+            else {
+                remove(message.id);
+                if (!message.dateRead && !isOutbox) updateUnreadCount(-1);
+            }
+        })
+    }
+
+    const openConfirmModal = (message: MessageDto) => {
+        setSelectedMessage(message);
+        deleteState.open();
+    }
+
+    const handleConfirmDelete = () => {
+        if (selectedMessage) handleDelete(selectedMessage);
+        deleteState.close();
+    }
+
+    const hasMore = !!cursor;
 
     return (
-        <div className='flex flex-col items-center justify-center gap-2 h-[calc(100vh-6rem)]'>
-            <Card className='w-2/5 mx-auto shadow-xl py-10'>
-                <Card.Header className='flex flex-col items-center justify-center'>
-                    <div className='flex flex-col gap-2 items-center'>
-                        <FaBug size={60} />
-                        <h1 className='text-3xl font-semibold'>Server error!</h1>
-                    </div>
-                </Card.Header>
-                <Card.Content>
-                    <div className='flex justify-center text-danger'>{error.message}</div>
-                </Card.Content>
-                <Card.Footer className='flex justify-center'>
+        <>
+            <Table>
+                <Table.ScrollContainer className="max-h-[60vh] overflow-y-auto">
+                    <Table.Content aria-label="Messages table">
+                        <Table.Header>
+                            <Table.Column id="party" isRowHeader>{partyLabel}</Table.Column>
+                            <Table.Column id="text">Message</Table.Column>
+                            <Table.Column id="created">Date</Table.Column>
+                            <Table.Column id="actions">{''}</Table.Column>
+                        </Table.Header>
+                        <Table.Body items={messages} renderEmptyState={() => 'No messages to display'}>
+                            {(message) => {
+                                const name = isOutbox ? message.recipientName : message.senderName;
+                                const image = isOutbox ? message.recipientImage : message.senderImage;
+                                const partyId = isOutbox ? message.recipientId : message.senderId;
+                                const isRead = message.dateRead !== null;
+                                return (
+                                    <Table.Row
+                                        id={message.id}
+                                        onAction={() => router.push(`/members/${partyId}/chat`)}
+                                        className={`${!isRead && !isOutbox ? 'font-semibold' : ''} cursor-pointer`}
+                                    >
+                                        <Table.Cell>
+                                            <div className="flex items-center gap-3">
+                                                <PresenceAvatar src={image} userId={partyId} />
+                                                <span>{name}</span>
+                                            </div>
+                                        </Table.Cell>
+                                        <Table.Cell>
+                                            <span className="line-clamp-1">{message.text}</span>
+                                        </Table.Cell>
+                                        <Table.Cell>
+                                            {formatShortDateTime(new Date(message.created))}
+                                        </Table.Cell>
+                                        <Table.Cell>
+                                            <div onPointerDown={e => e.stopPropagation()}>
+                                                <Button
+                                                    isIconOnly
+                                                    variant="danger-soft"
+                                                    aria-label="Delete message"
+                                                    isPending={isDeleting}
+                                                    onClick={() => openConfirmModal(message)}
+                                                >
+                                                    <AiFillDelete size={18} />
+                                                </Button>
+                                            </div>
+                                        </Table.Cell>
+                                    </Table.Row>
+                                )
+                            }}
+                        </Table.Body>
+                    </Table.Content>
+                </Table.ScrollContainer>
+                <Table.Footer className="justify-end">
                     <Button
-                        onClick={
-                            // Attempt to recover by re-fetching and re-rendering the segment
-                            () => unstable_retry()
-                        }
+                        variant="primary"
+                        isPending={isLoadingMore}
+                        isDisabled={!hasMore}
+                        onClick={loadMore}
                     >
-                        Try again
+                        {hasMore ? 'Load more' : 'No more messages'}
                     </Button>
-                </Card.Footer>
-            </Card>
+                </Table.Footer>
+            </Table>
 
-        </div>
+            <AppModal
+                state={deleteState}
+                title="Delete message"
+                footer={
+                    <>
+                        <Button variant="ghost" onClick={deleteState.close}>Cancel</Button>
+                        <Button
+                            variant="danger-soft"
+                            onClick={handleConfirmDelete}
+                            isPending={isDeleting}
+                        >Delete</Button>
+                    </>
+                }
+            >
+                Are you sure you want to delete this message? This cannot be undone.
+            </AppModal>
+        </>
     )
 }

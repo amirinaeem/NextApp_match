@@ -25,20 +25,30 @@ export default function RegisterForm() {
     });
 
     const onSubmit = async (data: RegisterSchema) => {
-        await authClient.signUp.email({
-            email: data.email,
-            password: data.password,
-            name: data.name
-        }, {
-            onSuccess: () => {
-                router.push('/members');
-                router.refresh()
-            },
-            onError: (ctx) => {
-                toast.danger(ctx.error.message)
+        console.log('Registration data:', data);
+
+        try {
+            const result = await authClient.signUp.email({
+                email: data.email,
+                password: data.password,
+                name: data.name
+            });
+
+            console.log('Registration result:', result);
+
+            if (result.error) {
+                toast.danger(result.error.message);
+                return;
             }
-        })
-    }
+
+            router.push('/members');
+            router.refresh();
+
+        } catch (error) {
+            console.error('Registration failed:', error);
+            toast.danger('Something went wrong during registration');
+        }
+    };
 
     return (
         <Card className="w-md shadow-xl">
@@ -59,7 +69,7 @@ export default function RegisterForm() {
                     isInvalid={!!errors.name}
                 >
                     <Input
-                        type="name"
+                        type="text"
                         placeholder="Enter Your name"
                         {...register('name')}
                     />
@@ -97,7 +107,7 @@ export default function RegisterForm() {
                     isInvalid={!!errors.confirmPassword}
                 >
                     <Input
-                        type="confirmPassword"
+                        type="password"
                         placeholder="Enter Your confirmPassword"
                         {...register('confirmPassword')}
                     />

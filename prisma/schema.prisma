@@ -10,38 +10,37 @@ datasource db {
 model User {
   id              String    @id
   name            String
-  email           String
+  email           String    @unique
   emailVerified   Boolean   @default(false)
   profileComplete Boolean   @default(false)
   image           String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  sessions        Session[]
-  accounts        Account[]
-  member          Member?
   role            String?
   banned          Boolean?  @default(false)
   banReason       String?
   banExpires      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  @@unique([email])
+  sessions Session[]
+  accounts Account[]
+  member   Member?
+
   @@map("user")
 }
 
 model Session {
-  id        String   @id
-  expiresAt DateTime
-  token     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  ipAddress String?
-  userAgent String?
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  id             String   @id
+  expiresAt      DateTime
+  token          String   @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  ipAddress      String?
+  userAgent      String?
+  userId         String
   impersonatedBy String?
 
-  @@unique([token])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
   @@map("session")
 }
@@ -51,7 +50,6 @@ model Account {
   accountId             String
   providerId            String
   userId                String
-  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   accessToken           String?
   refreshToken          String?
   idToken               String?
@@ -61,6 +59,8 @@ model Account {
   password              String?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("account")
@@ -84,17 +84,20 @@ model Member {
   name        String
   gender      String
   dateOfBirth DateTime
-  created     DateTime @default(now())
-  updated     DateTime @default(now())
   description String
   city        String
   country     String
   image       String?
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  photos      Photo[]
-  sourceLikes Like[]   @relation("source")
-  targetLikes Like[]   @relation("target")
-  likes       Like[]
+  created     DateTime @default(now())
+  updated     DateTime @default(now())
+
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  photos            Photo[]
+  sourceLikes       Like[]    @relation("source")
+  targetLikes       Like[]    @relation("target")
+  likes             Like[]
+  senderMessages    Message[] @relation("sender")
+  recipientMessages Message[] @relation("recipient")
 }
 
 model Photo {
@@ -102,16 +105,32 @@ model Photo {
   url      String
   publicId String?
   memberId String
-  member   Member  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
 }
 
 model Like {
   sourceUserId String
-  sourceMember Member  @relation("source", fields: [sourceUserId], references: [userId], onDelete: Cascade)
   targetUserId String
-  targetMember Member  @relation("target", fields: [targetUserId], references: [userId], onDelete: Cascade)
-  member       Member? @relation(fields: [memberId], references: [id])
   memberId     String?
 
+  sourceMember Member  @relation("source", fields: [sourceUserId], references: [userId], onDelete: Cascade)
+  targetMember Member  @relation("target", fields: [targetUserId], references: [userId], onDelete: Cascade)
+  member       Member? @relation(fields: [memberId], references: [id])
+
   @@id([sourceUserId, targetUserId])
+}
+
+model Message {
+  id               String    @id @default(cuid())
+  text             String
+  created          DateTime  @default(now())
+  senderId         String?
+  recipientId      String?
+  dateRead         DateTime?
+  senderDeleted    Boolean   @default(false)
+  recipientDeleted Boolean   @default(false)
+
+  sender    Member? @relation("sender", fields: [senderId], references: [userId], onDelete: SetNull)
+  recipient Member? @relation("recipient", fields: [recipientId], references: [userId], onDelete: SetNull)
 }
